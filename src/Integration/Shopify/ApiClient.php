@@ -3,47 +3,54 @@
 namespace OrderDesk\App\Integration\Shopify;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 
 class ApiClient
 {
-    public function get_number_of_orders()
+    protected $client;
+
+    // Moved Guzzle HTTP client instantiation to constructor    
+    public function __construct()
     {
-        $httpClient = new Client();
+        $this->client = new Client();
+    }
 
+    public function getNumberOfOrders(): int
+    {
         try {
-            $a = $httpClient->request('GET', 'https://mysuperawesomestorewithstuffandthings.shopify.com/orders');
-        } catch (\Exception $e) {}
+            $response = $this->client->request('GET', 'https://mysuperawesomestorewithstuffandthings.shopify.com/orders');
+        } catch (GuzzleException $e) {
+            return 0;
+        }
 
-        if ($a->getStatusCode() == 200) {
-            if (strpos($a->getBody(), '{') === 0) {
-                $data = json_decode($a->getBody());
-                if (isset($data['status']) && $data['status'] == 'success') {
-                    if ($data['items']) {
-                        return count($data['items']);
-                    }
-                }
-            }
+        $body = json_decode($response->getBody(), true);
+
+        if (isset($body['status']) && $body['status'] === 'success' && isset($body['items'])) {
+            return count($body['items']);
         }
 
         return 0;
+
     }
 
-    public function getShipments(int $orderId)
+    public function getShipments(int $orderId): array
     {
-        $httpClient = new Client();
-
         try {
-        $a = $httpClient->request('GET', 'https://mysuperawesomestorewithstuffandthings.shopify.com/orders/shipments/' . $orderId);
-        } catch (\Exception $e) {}
-
-        $shipments = json_decode($a->getBody(), true);
-
-        $shipment_info = [];
-
-        foreach ($shipments as $shipment) {
-            $shipment_info[] = $shipment['tracking_number'];
+            $response = $this->client->request('GET', "https://mysuperawesomestorewithstuffandthings.shopify.com/orders/shipments/$orderId");
+        } catch (GuzzleException $e) {
+            return [];
         }
 
-        return $shipment_info;
+        $body = json_decode($response->getBody(), true);
+
+        $shipmentInfo = [];
+
+        foreach ($body as $shipment) {
+            $shipmentInfo[] = $shipment['tracking_number'];
+        }
+
+        return $shipmentInfo;
+
     }
+
 }
